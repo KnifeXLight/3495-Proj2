@@ -2,29 +2,34 @@ const express = require("express");
 const session = require("express-session");
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
+const mysql = require("mysql2/promise"); // NEW: Added MySQL dependency
 
 const app = express();
-const PORT = 4000; // pick 4000 so it doesn't clash with enter-data-app (3000)
+const PORT = 4000;
 
 // Middleware
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: true })); // parse form data
+app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
-    name: "show_results_sid", // Custom cookie name to avoid clashes with enter-data-app
+    name: "show_results_sid",
     secret: "supersecretkey",
     resave: false,
     saveUninitialized: true,
   }),
 );
 
-// Auth middleware (same idea as enter-data-app)
-function isAuthenticated(req, res, next) {
-  if (req.session.user) return next();
-  res.redirect("/");
-}
+// --- Database Connections ---
 
-// MongoDB connection helper
+// NEW: MySQL Connection Pool for fetching personal grades
+const mysqlPool = mysql.createPool({
+  host: process.env.DB_HOST || "mysql-db",
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || "analytics_db",
+});
+
+// MongoDB Connection for fetching class statistics
 async function getMongoCollection() {
   const host = process.env.MONGO_HOST || "mongo-db";
   const port = process.env.MONGO_PORT || "27017";
@@ -32,27 +37,28 @@ async function getMongoCollection() {
   const pass = process.env.MONGO_PASSWORD;
   const dbName = process.env.MONGO_DB || "analytics_db";
 
-  // Safety check to ensure variables were passed correctly
   if (!user || !pass) {
     throw new Error(
       "CRITICAL: MongoDB credentials missing from environment variables!",
     );
   }
 
-  // If you created the Mongo user via MONGO_INITDB_ROOT_USERNAME/PASSWORD,
-  // auth is against the "admin" database.
   const uri = `mongodb://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}/admin?authSource=admin`;
-
   const client = new MongoClient(uri);
   await client.connect();
-
   const db = client.db(dbName);
   const collection = db.collection("statistics");
 
   return { client, collection };
 }
 
-// Routes
+// --- Routes ---
+
+function isAuthenticated(req, res, next) {
+  if (req.session.user) return next();
+  res.redirect("/");
+}
+
 app.get("/", (req, res) => {
   res.render("login", { error: null });
 });
@@ -75,46 +81,50 @@ app.post("/login", async (req, res) => {
 });
 
 app.get("/results", isAuthenticated, async (req, res) => {
-  let client;
+  let mongoClient;
 
   try {
+    // 1. Fetch Class Stats from MongoDB
     const mongo = await getMongoCollection();
-    client = mongo.client;
+    mongoClient = mongo.client;
 
-    // Get the most recent stats doc (latest run)
     const latest = await mongo.collection
       .find({})
       .sort({ timestamp: -1 })
       .limit(1)
       .toArray();
 
-    // Optionally also show the last 10 runs (handy for debugging/demo)
-    const recent = await mongo.collection
-      .find({})
-      .sort({ timestamp: -1 })
-      .limit(10)
-      .toArray();
+    const classStats = latest.length > 0 ? latest[0] : null;
 
-    const latestStats = latest.length > 0 ? latest[0] : null;
+    // 2. Fetch Personal Grades from MySQL (ONLY if the user is a Student)
+    let myGrades = [];
+    if (req.session.user.role === "student") {
+      const [rows] = await mysqlPool.execute(
+        "SELECT score, created_at FROM grades WHERE student_id = ? ORDER BY created_at DESC",
+        [req.session.user.id],
+      );
+      myGrades = rows;
+    }
 
+    // 3. Render the Dashboard
     res.render("results", {
       user: req.session.user,
-      latest: latestStats,
-      recent: recent,
-      message: latestStats
+      classStats: classStats,
+      myGrades: myGrades,
+      message: classStats
         ? null
-        : "No statistics found yet. Wait for analytics-service to run.",
+        : "No class statistics found yet. Wait for analytics-service to run.",
     });
   } catch (err) {
-    console.error("MongoDB error:", err);
+    console.error("Database error:", err);
     res.render("results", {
       user: req.session.user,
-      latest: null,
-      recent: [],
-      message: "Error retrieving results from MongoDB.",
+      classStats: null,
+      myGrades: [],
+      message: "Error retrieving data from the databases.",
     });
   } finally {
-    if (client) await client.close();
+    if (mongoClient) await mongoClient.close();
   }
 });
 

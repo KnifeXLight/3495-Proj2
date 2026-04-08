@@ -18,7 +18,6 @@ app.use(
   }),
 );
 
-
 // Read directly from environment variables injected by Docker
 const dbHost = process.env.DB_HOST || "mysql-db";
 const dbUser = process.env.DB_USER;
@@ -41,13 +40,16 @@ const pool = mysql.createPool({
   database: dbName,
 });
 
-// Middleware to check if user is logged in
-function isAuthenticated(req, res, next) {
-  if (req.session.user) return next();
-  res.redirect("/");
+// Middleware: Restrict to Admins only
+function isAdmin(req, res, next) {
+  if (req.session.user && req.session.user.role === "admin") return next();
+  res
+    .status(403)
+    .send(
+      "Access Denied: Only Teachers/Admins can enter grades. <br><a href='/'>Go Back</a>",
+    );
 }
 
-// Routes
 app.get("/", (req, res) => {
   res.render("login", { error: null });
 });
@@ -71,11 +73,11 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/data", isAuthenticated, (req, res) => {
+app.get("/data", isAdmin, (req, res) => {
   res.render("data", { user: req.session.user, message: null });
 });
 
-app.post("/data", isAuthenticated, async (req, res) => {
+app.post("/data", isAdmin, async (req, res) => {
   const dataValue = parseFloat(req.body.data_value);
 
   if (isNaN(dataValue)) {
@@ -86,20 +88,20 @@ app.post("/data", isAuthenticated, async (req, res) => {
   }
 
   try {
-    // Write the entered data to MySQL
-    await pool.execute(
-      "INSERT INTO raw_data (user_id, data_value) VALUES (?, ?)",
-      [req.session.user.id, dataValue],
-    );
+    // UPDATE: Insert into the new grades table
+    await pool.execute("INSERT INTO grades (student_id, score) VALUES (?, ?)", [
+      studentId,
+      score,
+    ]);
     res.render("data", {
       user: req.session.user,
-      message: `Successfully saved value: ${dataValue}`,
+      message: `Successfully saved score: ${score} for Student ID: ${studentId}`,
     });
   } catch (error) {
     console.error("Database error:", error);
     res.render("data", {
       user: req.session.user,
-      message: "Error saving data to database.",
+      message: "Error saving data.",
     });
   }
 });

@@ -1,17 +1,45 @@
-<h2>Show Results</h2>
+<h2>Grades Dashboard</h2>
 
-<p>Welcome <%= user.username %></p>
+<p>Welcome <%= user.username %> <strong>(Role: <%= user.role %>)</strong></p>
 
 <% if (message) { %>
-  <p><%= message %></p>
+  <p><em><%= message %></em></p>
 <% } %>
 
-<% if (latest) { %>
-  <h3>Latest Statistics</h3>
-  <p>Min: <%= latest.min %></p>
-  <p>Max: <%= latest.max %></p>
-  <p>Average: <%= latest.avg %></p>
-  <p>Count: <%= latest.count %></p>
+<hr>
+<h3>Class Statistics (Anonymous)</h3>
+<% if (classStats) { %>
+  <ul>
+    <li><strong>Class Highest:</strong> <%= classStats.class_highest %>%</li>
+    <li><strong>Class Lowest:</strong> <%= classStats.class_lowest %>%</li>
+    <li><strong>Class Average:</strong> <%= classStats.class_average %>%</li>
+    <li><strong>Total Grades Entered:</strong> <%= classStats.total_grades_entered %></li>
+  </ul>
+<% } else { %>
+  <p>No analytics available yet.</p>
 <% } %>
 
-<a href="/logout">Logout</a>
+<% if (user.role === 'student') { %>
+  <hr>
+  <h3>My Personal Grades</h3>
+  
+  <% if (myGrades && myGrades.length > 0) { %>
+    <table border="1" cellpadding="5" style="border-collapse: collapse;">
+      <tr>
+        <th>Score</th>
+        <th>Date Entered</th>
+      </tr>
+      <% myGrades.forEach(function(grade) { %>
+        <tr>
+          <td><%= grade.score %>%</td>
+          <td><%= new Date(grade.created_at).toLocaleString() %></td>
+        </tr>
+      <% }); %>
+    </table>
+  <% } else { %>
+    <p>No grades recorded for you yet.</p>
+  <% } %>
+<% } %>
+
+<br>
+<a href="/logout"><button>Logout</button></a>

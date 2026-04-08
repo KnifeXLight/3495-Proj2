@@ -1,0 +1,103 @@
+services:
+  mysql-db:
+    image: mysql:latest
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db-init:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+
+  mongo-db:
+    image: mongo:latest
+    container_name: mongo-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      # Map internal variables to your global .env file
+      - DB_HOST=mysql-db
+      - DB_NAME=${MYSQL_DATABASE}
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mysql-db
+    networks:
+      - app-network
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: analytics-service
+    environment:
+      - DB_HOST=mysql-db
+      - DB_NAME=${MYSQL_DATABASE}
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - MONGO_HOST=mongo-db
+      - MONGO_USER=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    depends_on:
+      - mysql-db
+      - mongo-db
+    networks:
+      - app-network
+
+  enter-data-app:
+    build: ./enter-data-app
+    container_name: enter-data-app
+    environment:
+      - DB_HOST=mysql-db
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - DB_NAME=${MYSQL_DATABASE}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mysql-db
+      - auth-service
+    networks:
+      - app-network
+
+  show-results-app:
+    build: ./show-results-app
+    container_name: show-results-app
+    environment:
+      - MONGO_HOST=mongo-db
+      - MONGO_USER=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+      - MONGO_DB=analytics_db
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mongo-db
+      - auth-service
+    networks:
+      - app-network
+
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  mongo-data:

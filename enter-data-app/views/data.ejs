@@ -1,0 +1,12 @@
+<h2>Enter Data</h2>
+
+<p>Welcome <%= user.username %></p>
+
+<form method="POST" action="/data">
+  Value: <input name="data_value" /><br>
+  <button type="submit">Submit</button>
+</form>
+
+<p><%= message %></p>
+
+<a href="/logout">Logout</a>

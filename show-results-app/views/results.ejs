@@ -1,0 +1,17 @@
+<h2>Show Results</h2>
+
+<p>Welcome <%= user.username %></p>
+
+<% if (message) { %>
+  <p><%= message %></p>
+<% } %>
+
+<% if (latest) { %>
+  <h3>Latest Statistics</h3>
+  <p>Min: <%= latest.min %></p>
+  <p>Max: <%= latest.max %></p>
+  <p>Average: <%= latest.avg %></p>
+  <p>Count: <%= latest.count %></p>
+<% } %>
+
+<a href="/logout">Logout</a>

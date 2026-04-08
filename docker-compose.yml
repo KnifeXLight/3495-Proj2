@@ -69,6 +69,9 @@ services:
       - DB_USER=${MYSQL_USER}
       - DB_PASSWORD=${MYSQL_PASSWORD}
       - DB_NAME=${MYSQL_DATABASE}
+      - MONGO_HOST=mongo-db
+      - MONGO_USER=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
     ports:
       - "3000:3000"
     depends_on:
@@ -81,14 +84,21 @@ services:
     build: ./show-results-app
     container_name: show-results-app
     environment:
+      # MongoDB Variables (For Class Stats)
       - MONGO_HOST=mongo-db
       - MONGO_USER=${MONGO_INITDB_ROOT_USERNAME}
       - MONGO_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
       - MONGO_DB=analytics_db
+      # MySQL Variables (For Personal Student Grades)
+      - DB_HOST=mysql-db
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - DB_NAME=${MYSQL_DATABASE}
     ports:
       - "4000:4000"
     depends_on:
       - mongo-db
+      - mysql-db
       - auth-service
     networks:
       - app-network

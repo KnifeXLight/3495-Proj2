@@ -1,9 +1,84 @@
-<h2>Enter Student Grade</h2>
-<p>Welcome Teacher <%= user.username %></p>
-<form method="POST" action="/data">
-  Student ID: <input type="number" name="student_id" required /><br />
-  Score: <input type="number" step="0.1" name="score" required /><br />
-  <button type="submit">Submit Grade</button>
-</form>
-<p><%= message %></p>
+<style>
+    .dashboard-container { display: flex; gap: 20px; font-family: sans-serif; }
+    .form-section { flex: 1; border-right: 1px solid #ccc; padding-right: 20px; }
+    .list-section { flex: 2; }
+    .analytics-banner { background: #f0f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #d1d9e6; }
+    .scrollable-table { height: 300px; overflow-y: auto; border: 1px solid #ddd; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background-color: #f4f4f4; position: sticky; top: 0; }
+</style>
+
+<h2>Teacher Dashboard</h2>
+<p>Logged in as: <strong><%= user.username %></strong></p>
+
+<div class="analytics-banner">
+    <h3>Class Overview (Live Stats)</h3>
+    <% if (classStats) { %>
+        <p>
+            <strong>Average:</strong> <%= classStats.class_average %>% | 
+            <strong>Highest:</strong> <%= classStats.class_highest %>% | 
+            <strong>Lowest:</strong> <%= classStats.class_lowest %>% | 
+            <strong>Total Grades:</strong> <%= classStats.total_grades_entered %>
+        </p>
+    <% } else { %>
+        <p><em>No statistics available yet. Please enter grades to trigger the analytics worker.</em></p>
+    <% } %>
+</div>
+
+<div class="dashboard-container">
+    <div class="form-section">
+        <h3>Enter / Edit Grade</h3>
+        <form method="POST" action="/data">
+            <label>Student ID:</label><br>
+            <input type="number" name="student_id" required placeholder="e.g. 2"><br><br>
+            <label>Score (0-100):</label><br>
+            <input type="number" step="0.1" name="score" required placeholder="e.g. 85.5"><br><br>
+            <button type="submit">Submit Grade</button>
+        </form>
+        <p style="color: green;"><%= message %></p>
+
+        <h4>Student ID Reference</h4>
+        <div class="scrollable-table" style="height: 150px;">
+            <table>
+                <tr><th>ID</th><th>Username</th></tr>
+                <% students.forEach(s => { %>
+                    <tr><td><%= s.id %></td><td><%= s.username %></td></tr>
+                <% }) %>
+            </table>
+        </div>
+    </div>
+
+    <div class="list-section">
+        <h3>Current Grade Records</h3>
+        <div class="scrollable-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>ID</th>
+                        <th>Score</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% grades.forEach(g => { %>
+                        <tr>
+                            <td><%= g.username %></td>
+                            <td><%= g.student_id %></td>
+                            <td><%= g.score %>%</td>
+                            <td>
+                                <button onclick="document.getElementsByName('student_id')[0].value='<%= g.student_id %>'; document.getElementsByName('score')[0].value='<%= g.score %>';">
+                                    Edit
+                                </button>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<br><hr>
 <a href="/logout">Logout</a>

@@ -1,0 +1,38 @@
+# 1. Internal service for the Auth API (Internal only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  type: ClusterIP # Stays internal
+  selector:
+    app: auth
+  ports:
+    - port: 5000
+      targetPort: 5000 
+---
+# 2. Public Service for the Student Dashboard
+apiVersion: v1
+kind: Service
+metadata:
+  name: show-results-app
+spec:
+  type: LoadBalancer # Creates a public AWS URL
+  selector:
+    app: show-results
+  ports:
+    - port: 80
+      targetPort: 4000
+---
+# 3. Public Service for the Teacher Dashboard (Our Scaling Target)
+apiVersion: v1
+kind: Service
+metadata:
+  name: enter-data-app
+spec:
+  type: LoadBalancer # Creates a public AWS URL
+  selector:
+    app: enter-data
+  ports:
+    - port: 80
+      targetPort: 3000

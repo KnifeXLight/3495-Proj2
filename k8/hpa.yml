@@ -1,0 +1,19 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: enter-data-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: enter-data-app # Targets the teacher app from your app.yml
+  minReplicas: 2  # The baseline we established in Phase 3
+  maxReplicas: 10 # The ceiling for the demo
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        # This tells K8s: "If average CPU use > 50% of the 100m we requested, SCALE UP"
+        averageUtilization: 10

@@ -1,1 +1,158 @@
-.
+# 1. Auth Service (Python Flask API)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: knifexlight/auth-service:latest
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "50m" # Minimal footprint for the bouncer
+          limits:
+            cpu: "100m"
+        env:
+        - name: DB_HOST
+          value: "mysql-db"
+        - name: DB_NAME
+          value: "analytics_db"
+        - name: DB_USER
+          value: "dbuser"
+        - name: DB_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mysql-password } }
+
+---
+
+# 2. Analytics Service (Python Worker)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics
+  template:
+    metadata:
+      labels:
+        app: analytics
+    spec:
+      containers:
+      - name: analytics
+        image: knifexlight/analytics-service:latest
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            cpu: "100m"
+        env:
+        - name: DB_HOST
+          value: "mysql-db"
+        - name: DB_NAME
+          value: "analytics_db"
+        - name: DB_USER
+          value: "dbuser"
+        - name: DB_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mysql-password } }
+        - name: MONGO_HOST
+          value: "mongo-db"
+        - name: MONGO_USER
+          value: "mongouser"
+        - name: MONGO_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mongo-root-password } }
+
+---
+
+# 3. Enter Data App (Teacher Dashboard - PRIMARY SCALING TARGET)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enter-data-app
+spec:
+  replicas: 2 # Start with a baseline of 2 for high availability
+  selector:
+    matchLabels:
+      app: enter-data
+  template:
+    metadata:
+      labels:
+        app: enter-data
+    spec:
+      containers:
+      - name: app
+        image: knifexlight/enter-data-app:latest
+        resources:
+          # CRITICAL: HPA needs these to measure utilization
+          requests:
+            cpu: "100m" # Reserve 10% of a core
+          limits:
+            cpu: "200m" # Cap at 20%
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DB_HOST
+          value: "mysql-db"
+        - name: DB_USER
+          value: "dbuser"
+        - name: DB_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mysql-password } }
+        - name: MONGO_HOST
+          value: "mongo-db"
+        - name: MONGO_USER
+          value: "mongouser"
+        - name: MONGO_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mongo-root-password } }
+
+---
+
+# 4. Show Results App (Student Dashboard)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: show-results-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: show-results
+  template:
+    metadata:
+      labels:
+        app: show-results
+    spec:
+      containers:
+      - name: app
+        image: knifexlight/show-results-app:latest
+        resources:
+          requests:
+            cpu: "100m"
+          limits:
+            cpu: "200m"
+        ports:
+        - containerPort: 4000
+        env:
+        - name: DB_HOST
+          value: "mysql-db"
+        - name: DB_USER
+          value: "dbuser"
+        - name: DB_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mysql-password } }
+        - name: MONGO_HOST
+          value: "mongo-db"
+        - name: MONGO_USER
+          value: "mongouser"
+        - name: MONGO_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mongo-root-password } }

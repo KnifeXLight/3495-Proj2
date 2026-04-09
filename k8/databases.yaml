@@ -1,0 +1,91 @@
+# 1. MySQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-db
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:latest
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mysql-root-password } }
+        - name: MYSQL_DATABASE
+          value: "analytics_db"
+        - name: MYSQL_USER
+          value: "dbuser"
+        - name: MYSQL_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mysql-password } }
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        - name: mysql-init
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim: { claimName: mysql-pvc }
+      - name: mysql-init
+        configMap: { name: mysql-init-config }
+---
+# 2. MySQL Internal Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-db
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+---
+# 3. MongoDB Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-db
+spec:
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+      - name: mongo
+        image: mongo:latest
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: "mongouser"
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom: { secretKeyRef: { name: app-secrets, key: mongo-root-password } }
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongo-data
+          mountPath: /data/db
+      volumes:
+      - name: mongo-data
+        persistentVolumeClaim: { claimName: mongo-pvc }
+---
+# 4. MongoDB Internal Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-db
+spec:
+  selector:
+    app: mongo
+  ports:
+    - port: 27017
